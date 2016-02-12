@@ -11,27 +11,39 @@ import (
 
 func main() {
 	log.SetLevel(log.DebugLevel)
-	if len(os.Args) != 2 {
-		usage()
-	}
-	var err error
-	switch os.Args[1] {
-	case "+":
-		err = increase()
-	case "-":
-		err = decrease()
-	default:
-		usage()
-	}
-	if err != nil {
+	if err := processCommand(); err != nil {
 		log.Fatal(err)
 	}
-	os.Exit(0)
+}
+
+func processCommand() (err error) {
+	switch len(os.Args) {
+	case 1:
+		return printCurrent()
+	case 2:
+		switch os.Args[1] {
+		case "+":
+			return increase()
+		case "-":
+			return decrease()
+		}
+	}
+	usage()
+	return
 }
 
 func usage() {
-	fmt.Printf("usage: %s +|-\n", filepath.Base(os.Args[0]))
+	fmt.Printf("usage: %s [+|-]\n", filepath.Base(os.Args[0]))
 	os.Exit(1)
+}
+
+func printCurrent() (err error) {
+	cur, err := get()
+	if err != nil {
+		return
+	}
+	fmt.Printf("%d\n", cur)
+	return
 }
 
 func increase() error {
