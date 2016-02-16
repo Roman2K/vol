@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -21,11 +22,12 @@ func processCommand() (err error) {
 	case 1:
 		return printCurrent()
 	case 2:
-		switch os.Args[1] {
-		case "+":
+		if s := os.Args[1]; s == "+" {
 			return increase()
-		case "-":
+		} else if s == "-" {
 			return decrease()
+		} else if i, err := strconv.Atoi(s); err == nil {
+			return set(i)
 		}
 	}
 	usage()
@@ -33,7 +35,7 @@ func processCommand() (err error) {
 }
 
 func usage() {
-	fmt.Printf("usage: %s [+|-]\n", filepath.Base(os.Args[0]))
+	fmt.Printf("usage: %s [+|-|vol]\n", filepath.Base(os.Args[0]))
 	os.Exit(1)
 }
 
