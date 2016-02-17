@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,19 +11,28 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
+var verbose = flag.Bool("v", false, "verbose")
+
 func main() {
-	log.SetLevel(log.DebugLevel)
+	flag.Parse()
+
+	if *verbose {
+		log.SetLevel(log.DebugLevel)
+	} else {
+		log.SetLevel(log.InfoLevel)
+	}
+
 	if err := processCommand(); err != nil {
 		log.Fatal(err)
 	}
 }
 
 func processCommand() (err error) {
-	switch len(os.Args) {
-	case 1:
+	switch flag.NArg() {
+	case 0:
 		return printCurrent()
-	case 2:
-		if s := os.Args[1]; s == "+" {
+	case 1:
+		if s := flag.Arg(0); s == "+" {
 			return increase()
 		} else if s == "-" {
 			return decrease()
@@ -35,7 +45,7 @@ func processCommand() (err error) {
 }
 
 func usage() {
-	fmt.Printf("usage: %s [+|-|vol]\n", filepath.Base(os.Args[0]))
+	fmt.Printf("usage: %s [-v] [+|-|vol]\n", filepath.Base(os.Args[0]))
 	os.Exit(1)
 }
 
