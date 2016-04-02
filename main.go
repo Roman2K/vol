@@ -6,15 +6,27 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
+	"regexp"
 
 	log "github.com/Sirupsen/logrus"
 )
 
-var verbose = flag.Bool("v", false, "verbose")
+var (
+	verbose = flag.Bool("v", false, "verbose")
+)
 
 func main() {
-	flag.Parse()
+	// We have to remove negative ints from the list of args to parse because
+	// they're treated as (invalid) flags. Example: vol -2
+	args := make([]string, 0, len(os.Args))
+	negRe := regexp.MustCompile(`\A-\d+\z`)
+	for _, arg := range os.Args[1:] {
+		if negRe.MatchString(arg) {
+			continue
+		}
+		args = append(args, arg)
+	}
+	flag.CommandLine.Parse(args)
 
 	if *verbose {
 		log.SetLevel(log.DebugLevel)
@@ -28,15 +40,22 @@ func main() {
 }
 
 func processCommand() (err error) {
-	switch flag.NArg() {
-	case 0:
-		return printCurrent()
+	// We can't use flag.NArg() nor flag.Arg() as in main() we parsed a list of
+	// args minus negative ints
+	switch len(os.Args) {
 	case 1:
-		if s := flag.Arg(0); s == "+" {
-			return increase()
-		} else if s == "-" {
-			return decrease()
-		} else if i, err := strconv.Atoi(s); err == nil {
+		return printCurrent()
+	case 2:
+		s := os.Args[1]
+		var i int
+		if _, err := fmt.Sscanf(s, "+%d", &i); err == nil {
+			fmt.Printf("+x %d\n", i)
+			return modify(i)
+		} else if _, err := fmt.Sscanf(s, "-%d", &i); err == nil {
+			fmt.Printf("-x %d\n", i)
+			return modify(-i)
+		} else if _, err := fmt.Sscanf(s, "%d", &i); err == nil {
+			fmt.Printf("set  x %d\n", i)
 			return set(i)
 		}
 	}
@@ -45,7 +64,7 @@ func processCommand() (err error) {
 }
 
 func usage() {
-	fmt.Printf("usage: %s [-v] [+|-|vol]\n", filepath.Base(os.Args[0]))
+	fmt.Printf("usage: %s [-v] [vol|+-delta]\n", filepath.Base(os.Args[0]))
 	os.Exit(1)
 }
 
@@ -56,14 +75,6 @@ func printCurrent() (err error) {
 	}
 	fmt.Printf("%d\n", cur)
 	return
-}
-
-func increase() error {
-	return modify(+5)
-}
-
-func decrease() error {
-	return modify(-5)
 }
 
 func modify(delta int) error {
@@ -91,7 +102,6 @@ func set(vol int) (err error) {
 	const (
 		min = 0
 		max = 100
-		mod = 5
 	)
 	switch {
 	case vol < min:
@@ -100,11 +110,6 @@ func set(vol int) (err error) {
 	case vol > max:
 		log.Warnf("vol %d > %d, adjusting to %d", vol, max, max)
 		vol = max
-	}
-	if vol%mod != 0 {
-		adjusted := vol / mod * mod
-		log.Warnf("vol %d not modulo %d, adjusting to %d", vol, mod, adjusted)
-		vol = adjusted
 	}
 	log.Infof("setting volume to %d", vol)
 	script := fmt.Sprintf("set volume output volume %d", vol)
